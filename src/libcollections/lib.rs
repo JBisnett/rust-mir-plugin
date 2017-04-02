@@ -52,6 +52,7 @@
 #![feature(shared)]
 #![feature(slice_get_slice)]
 #![feature(slice_patterns)]
+#![cfg_attr(not(test), feature(sort_unstable))]
 #![feature(specialization)]
 #![feature(staged_api)]
 #![feature(str_internals)]
@@ -59,6 +60,7 @@
 #![feature(unicode)]
 #![feature(unique)]
 #![feature(untagged_unions)]
+#![cfg_attr(not(test), feature(str_checked_slicing))]
 #![cfg_attr(test, feature(rand, test))]
 
 #![no_std]
@@ -129,14 +131,17 @@ mod std {
 }
 
 /// An endpoint of a range of keys.
-#[unstable(feature = "collections_bound", issue = "27787")]
+#[stable(feature = "collections_bound", since = "1.17.0")]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Bound<T> {
     /// An inclusive bound.
+    #[stable(feature = "collections_bound", since = "1.17.0")]
     Included(T),
     /// An exclusive bound.
+    #[stable(feature = "collections_bound", since = "1.17.0")]
     Excluded(T),
     /// An infinite endpoint. Indicates that there is no bound in this direction.
+    #[stable(feature = "collections_bound", since = "1.17.0")]
     Unbounded,
 }
 

@@ -133,7 +133,7 @@ impl<T> VecDeque<T> {
         ptr::write(self.ptr().offset(off as isize), value);
     }
 
-    /// Returns true if and only if the buffer is at capacity
+    /// Returns `true` if and only if the buffer is at full capacity.
     #[inline]
     fn is_full(&self) -> bool {
         self.cap() - self.len() == 1
@@ -788,7 +788,7 @@ impl<T> VecDeque<T> {
         count(self.tail, self.head, self.cap())
     }
 
-    /// Returns true if the buffer contains no elements
+    /// Returns `true` if the `VecDeque` is empty.
     ///
     /// # Examples
     ///
@@ -2125,7 +2125,7 @@ impl<'a, T: 'a> Drop for Drain<'a, T> {
     fn drop(&mut self) {
         for _ in self.by_ref() {}
 
-        let source_deque = unsafe { &mut **self.deque };
+        let source_deque = unsafe { &mut *self.deque.as_mut_ptr() };
 
         // T = source_deque_tail; H = source_deque_head; t = drain_tail; h = drain_head
         //

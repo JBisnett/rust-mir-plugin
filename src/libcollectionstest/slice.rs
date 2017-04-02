@@ -383,9 +383,11 @@ fn test_reverse() {
 
 #[test]
 fn test_sort() {
+    let mut rng = thread_rng();
+
     for len in (2..25).chain(500..510) {
         for _ in 0..100 {
-            let mut v: Vec<_> = thread_rng().gen_iter::<i32>().take(len).collect();
+            let mut v: Vec<_> = rng.gen_iter::<i32>().take(len).collect();
             let mut v1 = v.clone();
 
             v.sort();
@@ -399,9 +401,22 @@ fn test_sort() {
         }
     }
 
-    // shouldn't panic
-    let mut v: [i32; 0] = [];
+    // Sort using a completely random comparison function.
+    // This will reorder the elements *somehow*, but won't panic.
+    let mut v = [0; 500];
+    for i in 0..v.len() {
+        v[i] = i as i32;
+    }
+    v.sort_by(|_, _| *rng.choose(&[Less, Equal, Greater]).unwrap());
     v.sort();
+    for i in 0..v.len() {
+        assert_eq!(v[i], i as i32);
+    }
+
+    // Should not panic.
+    [0i32; 0].sort();
+    [(); 10].sort();
+    [(); 100].sort();
 
     let mut v = [0xDEADBEEFu64];
     v.sort();
@@ -439,13 +454,6 @@ fn test_sort_stability() {
             assert!(v.windows(2).all(|w| w[0] <= w[1]));
         }
     }
-}
-
-#[test]
-fn test_sort_zero_sized_type() {
-    // Should not panic.
-    [(); 10].sort();
-    [(); 100].sort();
 }
 
 #[test]

@@ -343,6 +343,23 @@ impl Command {
 
     /// Add an argument to pass to the program.
     ///
+    /// Only one argument can be passed per use. So instead of:
+    ///
+    /// ```ignore
+    /// .arg("-C /path/to/repo")
+    /// ```
+    ///
+    /// usage would be:
+    ///
+    /// ```ignore
+    /// .arg("-C")
+    /// .arg("/path/to/repo")
+    /// ```
+    ///
+    /// To pass multiple arguments see [`args`].
+    ///
+    /// [`args`]: #method.args
+    ///
     /// # Examples
     ///
     /// Basic usage:
@@ -363,6 +380,10 @@ impl Command {
     }
 
     /// Add multiple arguments to pass to the program.
+    ///
+    /// To pass a single argument see [`arg`].
+    ///
+    /// [`arg`]: #method.arg
     ///
     /// # Examples
     ///
@@ -416,7 +437,10 @@ impl Command {
     /// # Examples
     ///
     /// Basic usage:
+    ///
     /// ```no_run
+    /// #![feature(command_envs)]
+    ///
     /// use std::process::{Command, Stdio};
     /// use std::env;
     /// use std::collections::HashMap;
@@ -1032,7 +1056,21 @@ pub fn exit(code: i32) -> ! {
 /// will be run. If a clean shutdown is needed it is recommended to only call
 /// this function at a known point where there are no more destructors left
 /// to run.
-#[unstable(feature = "process_abort", issue = "37838")]
+///
+/// # Examples
+///
+/// ```no_run
+/// use std::process;
+///
+/// fn main() {
+///     println!("aborting");
+///
+///     process::abort();
+///
+///     // execution never gets here
+/// }
+/// ```
+#[stable(feature = "process_abort", since = "1.17.0")]
 pub fn abort() -> ! {
     unsafe { ::sys::abort_internal() };
 }

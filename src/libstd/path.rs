@@ -1065,13 +1065,13 @@ impl PathBuf {
         self.inner.push(path);
     }
 
-    /// Truncate `self` to [`self.parent()`].
+    /// Truncate `self` to [`self.parent`].
     ///
-    /// Returns false and does nothing if [`self.file_name()`] is `None`.
+    /// Returns false and does nothing if [`self.file_name`] is `None`.
     /// Otherwise, returns `true`.
     ///
-    /// [`self.parent()`]: struct.PathBuf.html#method.parent
-    /// [`self.file_name()`]: struct.PathBuf.html#method.file_name
+    /// [`self.parent`]: struct.PathBuf.html#method.parent
+    /// [`self.file_name`]: struct.PathBuf.html#method.file_name
     ///
     /// # Examples
     ///
@@ -1096,12 +1096,12 @@ impl PathBuf {
         }
     }
 
-    /// Updates [`self.file_name()`] to `file_name`.
+    /// Updates [`self.file_name`] to `file_name`.
     ///
-    /// If [`self.file_name()`] was [`None`], this is equivalent to pushing
+    /// If [`self.file_name`] was [`None`], this is equivalent to pushing
     /// `file_name`.
     ///
-    /// [`self.file_name()`]: struct.PathBuf.html#method.file_name
+    /// [`self.file_name`]: struct.PathBuf.html#method.file_name
     /// [`None`]: ../../std/option/enum.Option.html#variant.None
     ///
     /// # Examples
@@ -1130,15 +1130,15 @@ impl PathBuf {
         self.push(file_name);
     }
 
-    /// Updates [`self.extension()`] to `extension`.
+    /// Updates [`self.extension`] to `extension`.
     ///
-    /// If [`self.file_name()`] is `None`, does nothing and returns `false`.
+    /// If [`self.file_name`] is `None`, does nothing and returns `false`.
     ///
-    /// Otherwise, returns `true`; if [`self.extension()`] is [`None`], the
+    /// Otherwise, returns `true`; if [`self.extension`] is [`None`], the
     /// extension is added; otherwise it is replaced.
     ///
-    /// [`self.file_name()`]: struct.PathBuf.html#method.file_name
-    /// [`self.extension()`]: struct.PathBuf.html#method.extension
+    /// [`self.file_name`]: struct.PathBuf.html#method.file_name
+    /// [`self.extension`]: struct.PathBuf.html#method.extension
     /// [`None`]: ../../std/option/enum.Option.html#variant.None
     ///
     /// # Examples
@@ -1221,14 +1221,6 @@ impl<'a> From<Box<Path>> for PathBuf {
 impl Into<Box<Path>> for PathBuf {
     fn into(self) -> Box<Path> {
         self.into_boxed_path()
-    }
-}
-
-#[stable(feature = "box_default_extra", since = "1.17.0")]
-impl Default for Box<Path> {
-    fn default() -> Box<Path> {
-        let boxed: Box<OsStr> = Default::default();
-        unsafe { mem::transmute(boxed) }
     }
 }
 
@@ -1509,7 +1501,7 @@ impl Path {
     /// assert_eq!(path.to_string_lossy(), "foo.txt");
     /// ```
     ///
-    /// Had `os_str` contained invalid unicode, the `to_string_lossy` call might
+    /// Had `path` contained invalid unicode, the `to_string_lossy` call might
     /// have returned `"fo�.txt"`.
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn to_string_lossy(&self) -> Cow<str> {
@@ -1747,9 +1739,9 @@ impl Path {
         iter_after(self.components().rev(), child.components().rev()).is_some()
     }
 
-    /// Extracts the stem (non-extension) portion of [`self.file_name()`].
+    /// Extracts the stem (non-extension) portion of [`self.file_name`].
     ///
-    /// [`self.file_name()`]: struct.Path.html#method.file_name
+    /// [`self.file_name`]: struct.Path.html#method.file_name
     ///
     /// The stem is:
     ///
@@ -1774,7 +1766,7 @@ impl Path {
         self.file_name().map(split_file_at_dot).and_then(|(before, after)| before.or(after))
     }
 
-    /// Extracts the extension of [`self.file_name()`], if possible.
+    /// Extracts the extension of [`self.file_name`], if possible.
     ///
     /// The extension is:
     ///
@@ -1783,7 +1775,7 @@ impl Path {
     /// * [`None`], if the file name begins with `.` and has no other `.`s within;
     /// * Otherwise, the portion of the file name after the final `.`
     ///
-    /// [`self.file_name()`]: struct.Path.html#method.file_name
+    /// [`self.file_name`]: struct.Path.html#method.file_name
     /// [`None`]: ../../std/option/enum.Option.html#variant.None
     ///
     /// # Examples
@@ -3729,11 +3721,5 @@ mod tests {
         assert_eq!(path, &*boxed);
         assert_eq!(&*boxed, &*path_buf);
         assert_eq!(&*path_buf, path);
-    }
-
-    #[test]
-    fn boxed_default() {
-        let boxed = <Box<Path>>::default();
-        assert!(boxed.as_os_str().is_empty());
     }
 }

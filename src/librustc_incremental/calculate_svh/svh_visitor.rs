@@ -17,32 +17,21 @@ use self::SawTraitOrImplItemComponent::*;
 use syntax::abi::Abi;
 use syntax::ast::{self, Name, NodeId};
 use syntax::attr;
+use syntax::ext::hygiene::SyntaxContext;
 use syntax::parse::token;
-use syntax::symbol::{Symbol, InternedString};
-use syntax_pos::{Span, NO_EXPANSION, COMMAND_LINE_EXPN, BytePos};
+use syntax::symbol::InternedString;
+use syntax_pos::{Span, BytePos};
 use syntax::tokenstream;
 use rustc::hir;
 use rustc::hir::*;
 use rustc::hir::def::Def;
 use rustc::hir::def_id::DefId;
-use rustc::hir::intravisit as visit;
+use rustc::hir::intravisit::{self as visit, Visitor};
+use rustc::ich::{DefPathHashes, CachingCodemapView, IGNORED_ATTRIBUTES};
 use rustc::ty::TyCtxt;
-use rustc_data_structures::fnv;
 use std::hash::{Hash, Hasher};
 
-use super::def_path_hash::DefPathHashes;
-use super::caching_codemap_view::CachingCodemapView;
 use super::IchHasher;
-
-const IGNORED_ATTRIBUTES: &'static [&'static str] = &[
-    "cfg",
-    ::ATTR_IF_THIS_CHANGED,
-    ::ATTR_THEN_THIS_WOULD_NEED,
-    ::ATTR_DIRTY,
-    ::ATTR_CLEAN,
-    ::ATTR_DIRTY_METADATA,
-    ::ATTR_CLEAN_METADATA
-];
 
 pub struct StrictVersionHashVisitor<'a, 'hash: 'a, 'tcx: 'hash> {
     pub tcx: TyCtxt<'hash, 'tcx, 'tcx>,
@@ -104,10 +93,10 @@ impl<'a, 'hash, 'tcx> StrictVersionHashVisitor<'a, 'hash, 'tcx> {
             span.hi
         };
 
-        let expn_kind = match span.expn_id {
-            NO_EXPANSION => SawSpanExpnKind::NoExpansion,
-            COMMAND_LINE_EXPN => SawSpanExpnKind::CommandLine,
-            _ => SawSpanExpnKind::SomeExpansion,
+        let expn_kind = if span.ctxt == SyntaxContext::empty() {
+            SawSpanExpnKind::NoExpansion
+        } else {
+            SawSpanExpnKind::SomeExpansion
         };
 
         let loc1 = self.codemap.byte_pos_to_line_and_col(span.lo);
@@ -133,8 +122,7 @@ impl<'a, 'hash, 'tcx> StrictVersionHashVisitor<'a, 'hash, 'tcx> {
         saw.hash(self.st);
 
         if expn_kind == SawSpanExpnKind::SomeExpansion {
-            let call_site = self.codemap.codemap().source_callsite(span);
-            self.hash_span(call_site);
+            self.hash_span(span.source_callsite());
         }
     }
 
@@ -495,7 +483,6 @@ fn saw_impl_item(ii: &ImplItemKind) -> SawTraitOrImplItemComponent {
 #[derive(Clone, Copy, Hash, Eq, PartialEq)]
 enum SawSpanExpnKind {
     NoExpansion,
-    CommandLine,
     SomeExpansion,
 }
 
@@ -513,7 +500,7 @@ impl<'a> Hash for StableInlineAsm<'a> {
             volatile,
             alignstack,
             dialect,
-            expn_id: _, // This is used for error reporting
+            ctxt: _, // This is used for error reporting
         } = *self.0;
 
         asm.as_str().hash(state);
@@ -559,7 +546,7 @@ macro_rules! hash_span {
     });
 }
 
-impl<'a, 'hash, 'tcx> visit::Visitor<'tcx> for StrictVersionHashVisitor<'a, 'hash, 'tcx> {
+impl<'a, 'hash, 'tcx> Visitor<'tcx> for StrictVersionHashVisitor<'a, 'hash, 'tcx> {
     fn nested_visit_map<'this>(&'this mut self) -> visit::NestedVisitorMap<'this, 'tcx> {
         if self.hash_bodies {
             visit::NestedVisitorMap::OnlyBodies(&self.tcx.hir)
@@ -960,50 +947,24 @@ impl<'a, 'hash, 'tcx> StrictVersionHashVisitor<'a, 'hash, 'tcx> {
         }
     }
 
-    fn hash_meta_item(&mut self, meta_item: &ast::MetaItem) {
-        debug!("hash_meta_item: st={:?}", self.st);
-
-        // ignoring span information, it doesn't matter here
-        self.hash_discriminant(&meta_item.node);
-        meta_item.name.as_str().len().hash(self.st);
-        meta_item.name.as_str().hash(self.st);
-
-        match meta_item.node {
-            ast::MetaItemKind::Word => {}
-            ast::MetaItemKind::NameValue(ref lit) => saw_lit(lit).hash(self.st),
-            ast::MetaItemKind::List(ref items) => {
-                // Sort subitems so the hash does not depend on their order
-                let indices = self.indices_sorted_by(&items, |p| {
-                    (p.name().map(Symbol::as_str), fnv::hash(&p.literal().map(saw_lit)))
-                });
-                items.len().hash(self.st);
-                for (index, &item_index) in indices.iter().enumerate() {
-                    index.hash(self.st);
-                    let nested_meta_item: &ast::NestedMetaItemKind = &items[item_index].node;
-                    self.hash_discriminant(nested_meta_item);
-                    match *nested_meta_item {
-                        ast::NestedMetaItemKind::MetaItem(ref meta_item) => {
-                            self.hash_meta_item(meta_item);
-                        }
-                        ast::NestedMetaItemKind::Literal(ref lit) => {
-                            saw_lit(lit).hash(self.st);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     pub fn hash_attributes(&mut self, attributes: &[ast::Attribute]) {
         debug!("hash_attributes: st={:?}", self.st);
         let indices = self.indices_sorted_by(attributes, |attr| attr.name());
 
         for i in indices {
             let attr = &attributes[i];
-            if !attr.is_sugared_doc &&
-               !IGNORED_ATTRIBUTES.contains(&&*attr.value.name().as_str()) {
+            match attr.name() {
+                Some(name) if IGNORED_ATTRIBUTES.contains(&&*name.as_str()) => continue,
+                _ => {}
+            };
+            if !attr.is_sugared_doc {
                 SawAttribute(attr.style).hash(self.st);
-                self.hash_meta_item(&attr.value);
+                for segment in &attr.path.segments {
+                    SawIdent(segment.identifier.name.as_str()).hash(self.st);
+                }
+                for tt in attr.tokens.trees() {
+                    self.hash_token_tree(&tt);
+                }
             }
         }
     }
